@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark">
+<title>HSLトレーナー — 色相・彩度トレーニング</title>
+<style>
+  :root {
+    --bg: #131316;
+    --panel: #1d1d22;
+    --panel-2: #26262d;
+    --border: rgba(255, 255, 255, 0.09);
+    --text: #ececf1;
+    --muted: #9a9aa3;
+    --radius: 16px;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Hiragino Sans", "Noto Sans JP", sans-serif;
+    font-size: 14px;
+  }
+
+  .card {
+    width: 100%;
+    max-width: 540px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 26px 28px 28px;
+  }
+
+  /* ---------- ヘッダー ---------- */
+  .card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    row-gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .brand { display: flex; align-items: center; gap: 10px; }
+
+  .brand-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: conic-gradient(#ff5f5f, #ffd75e, #6ee7a0, #5ecfd7, #7db8ff, #c98cff, #ff5f5f);
+  }
+
+  .brand h1 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+  }
+
+  .head-info {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: center;
+    font-size: 12px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .head-info span {
+    padding: 4px 10px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+  }
+
+  .head-info .total { color: var(--text); font-weight: 600; }
+
+  .chip-btn {
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+  }
+
+  .chip-btn:hover { color: var(--text); border-color: rgba(255, 255, 255, 0.22); }
+  .chip-btn:focus-visible { outline: 2px solid #7db8ff; outline-offset: 1px; }
+
+  /* ---------- 進行ドット ---------- */
+  .progress { display: flex; gap: 7px; margin-bottom: 18px; }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.12);
+    transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+  }
+
+  .dot.current {
+    background: #fff;
+    transform: scale(1.3);
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.14);
+  }
+
+  /* ---------- スウォッチ ---------- */
+  .swatches {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 22px;
+  }
+
+  .swatch-label {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.6px;
+    margin-bottom: 6px;
+  }
+
+  .swatch {
+    height: 168px;
+    border-radius: 12px;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+  }
+
+  .swatch.pop { animation: pop 0.25s ease; }
+
+  @keyframes pop {
+    from { opacity: 0; transform: scale(0.985); }
+  }
+
+  /* ---------- スライダー ---------- */
+  .sliders { display: flex; flex-direction: column; gap: 14px; margin-bottom: 22px; }
+
+  .slider-row {
+    display: grid;
+    grid-template-columns: 34px 1fr auto 48px;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .slider-row label { font-size: 12px; color: var(--muted); }
+
+  .stepper { display: inline-flex; gap: 4px; }
+
+  .step-btn {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    color: var(--muted);
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+  }
+
+  .step-btn:hover { color: var(--text); border-color: rgba(255, 255, 255, 0.22); }
+  .step-btn:active { transform: scale(0.94); }
+  .step-btn:focus-visible { outline: 2px solid #7db8ff; outline-offset: 1px; }
+
+  .slider-value {
+    font-size: 12px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 14px;
+    margin: 0;
+    border-radius: 7px;
+    background: #333;
+    outline: none;
+    cursor: pointer;
+  }
+
+  input[type="range"]:focus-visible {
+    box-shadow: 0 0 0 2px rgba(125, 184, 255, 0.7);
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #fff;
+    border: 3px solid var(--bg);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
+    cursor: grab;
+  }
+
+  input[type="range"]::-webkit-slider-thumb:active { cursor: grabbing; }
+
+  input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    border: 3px solid var(--bg);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
+    cursor: grab;
+  }
+
+  /* イージーモードで明度をロック */
+  .slider-row.locked { opacity: 0.45; }
+  .slider-row.locked input[type="range"] { cursor: not-allowed; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ---------- ボタン ---------- */
+  .primary-btn {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 12px;
+    background: #fff;
+    color: var(--bg);
+    font-size: 15px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.05s;
+  }
+
+  .primary-btn:hover { opacity: 0.9; }
+  .primary-btn:active { transform: scale(0.99); }
+  .primary-btn:focus-visible { outline: 2px solid #7db8ff; outline-offset: 2px; }
+
+  .secondary-btn {
+    width: 100%;
+    padding: 12px;
+    border-radius: 12px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+
+  .secondary-btn:hover { border-color: rgba(255, 255, 255, 0.25); }
+  .secondary-btn:focus-visible { outline: 2px solid #7db8ff; outline-offset: 2px; }
+
+  /* ---------- モード選択 ---------- */
+  .mode-modal { gap: 10px; }
+
+  .brand-big { display: flex; align-items: center; gap: 10px; }
+
+  .brand-big h2 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 0.4px; }
+
+  .tagline { margin: 0 0 6px; font-size: 12px; color: var(--muted); text-align: center; }
+
+  .mode-card {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 16px 18px;
+    border-radius: 12px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: inherit;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.15s, background 0.15s, transform 0.05s;
+  }
+
+  .mode-card:hover { border-color: rgba(255, 255, 255, 0.28); background: #2b2b33; }
+  .mode-card:active { transform: scale(0.99); }
+  .mode-card:focus-visible { outline: 2px solid #7db8ff; outline-offset: 2px; }
+
+  .mode-name { font-size: 15px; font-weight: 700; }
+  .mode-desc { font-size: 12px; color: var(--muted); }
+  .mode-best { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .mode-modal .lang-btn { margin-top: 8px; }
+
+  /* ---------- オーバーレイ ---------- */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(10, 10, 13, 0.65);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+
+  .overlay.show { opacity: 1; pointer-events: auto; }
+
+  .modal {
+    width: min(92vw, 420px);
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px 28px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+    transform: translateY(10px) scale(0.98);
+    transition: transform 0.2s;
+  }
+
+  .overlay.show .modal { transform: none; }
+
+  .grade-badge {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 30px;
+    font-weight: 800;
+  }
+
+  .score-line { display: flex; align-items: baseline; gap: 6px; }
+
+  .score-num { font-size: 40px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }
+
+  .score-denom { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .delta-line { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; margin-top: -6px; }
+
+  .compare {
+    display: flex;
+    width: 100%;
+    height: 64px;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  }
+
+  .compare-half { flex: 1; }
+
+  .compare-labels {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.6px;
+    margin-top: -8px;
+  }
+
+  /* ---------- 結果のスライダー比較 ---------- */
+  .result-sliders { width: 100%; display: flex; flex-direction: column; gap: 10px; }
+
+  .rs-legend {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .rs-legend span { display: inline-flex; align-items: center; gap: 6px; }
+
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .legend-dot.you { background: #fff; }
+  .legend-dot.target { border: 2px solid #fff; }
+
+  .result-slider {
+    display: grid;
+    grid-template-columns: 34px 1fr 48px;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .rs-label { font-size: 12px; color: var(--muted); }
+
+  .rs-delta {
+    font-size: 12px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+  }
+
+  .rs-delta.zero { color: #69db7c; }
+
+  .result-track {
+    position: relative;
+    height: 14px;
+    border-radius: 7px;
+    margin: 0 8px;
+  }
+
+  .marker {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+  }
+
+  .marker.target {
+    border: 2px solid #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+    z-index: 1;
+  }
+
+  .marker.you {
+    background: #fff;
+    box-shadow: inset 0 0 0 2px rgba(19, 19, 22, 0.45), 0 1px 3px rgba(0, 0, 0, 0.55);
+    z-index: 2;
+  }
+
+  .hsl-lines {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+  }
+
+  /* ---------- サマリー ---------- */
+  .modal h2 { margin: 0; font-size: 15px; color: var(--muted); font-weight: 600; letter-spacing: 0.6px; }
+
+  .summary-score { display: flex; align-items: baseline; gap: 6px; }
+
+  .summary-score .score-num { font-size: 48px; }
+
+  .new-record {
+    font-size: 12px;
+    font-weight: 700;
+    color: #ffd166;
+    background: rgba(255, 209, 102, 0.12);
+    border: 1px solid rgba(255, 209, 102, 0.35);
+    padding: 4px 12px;
+    border-radius: 999px;
+  }
+
+  .summary-stats { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; margin-top: -6px; }
+
+  .question-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 236px;
+    overflow-y: auto;
+  }
+
+  .question-list li {
+    display: grid;
+    grid-template-columns: 30px 34px 22px 1fr auto;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    background: var(--panel-2);
+    border-radius: 9px;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .q-idx { color: var(--muted); }
+
+  .mini-swatches { display: flex; }
+
+  .mini-swatches i {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+  }
+
+  .mini-swatches i + i { margin-left: -6px; }
+
+  .q-grade { font-weight: 800; }
+
+  .q-score { color: var(--muted); }
+
+  @media (max-width: 420px) {
+    .card { padding: 20px 18px 22px; }
+    .swatch { height: 130px; }
+  }
+</style>
+</head>
+<body>
+
+<main class="card">
+  <header class="card-head">
+    <div class="brand">
+      <span class="brand-dot"></span>
+      <h1 id="appName" data-i18n="appName">HSLトレーナー</h1>
+    </div>
+    <div class="head-info">
+      <button type="button" class="chip-btn" id="modeChip" title="モード選択">ノーマル</button>
+      <span id="bestLabel">ベスト —</span>
+      <span class="total" id="totalLabel">合計 0 pt</span>
+      <button type="button" class="chip-btn lang-btn">EN</button>
+    </div>
+  </header>
+
+  <div class="progress" id="progress"></div>
+
+  <section class="swatches">
+    <div>
+      <span class="swatch-label" data-i18n="target">ターゲット</span>
+      <div class="swatch" id="targetSwatch"></div>
+    </div>
+    <div>
+      <span class="swatch-label" data-i18n="yours">あなたの色</span>
+      <div class="swatch" id="playerSwatch"></div>
+    </div>
+  </section>
+
+  <section class="sliders">
+    <div class="slider-row">
+      <label for="hueSlider" data-i18n="hue">色相</label>
+      <input type="range" id="hueSlider" min="0" max="359" step="1" value="0">
+      <span class="stepper">
+        <button type="button" class="step-btn" data-channel="h" data-dir="-1" aria-label="色相を1度減らす"><svg width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M5.5 1 2.5 4l3 3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button type="button" class="step-btn" data-channel="h" data-dir="1" aria-label="色相を1度増やす"><svg width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M2.5 1 5.5 4l-3 3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      </span>
+      <span class="slider-value" id="hueValue">0°</span>
+    </div>
+    <div class="slider-row">
+      <label for="satSlider" data-i18n="sat">彩度</label>
+      <input type="range" id="satSlider" min="0" max="100" step="1" value="0">
+      <span class="stepper">
+        <button type="button" class="step-btn" data-channel="s" data-dir="-1" aria-label="彩度を1%減らす"><svg width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M5.5 1 2.5 4l3 3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button type="button" class="step-btn" data-channel="s" data-dir="1" aria-label="彩度を1%増やす"><svg width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M2.5 1 5.5 4l-3 3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      </span>
+      <span class="slider-value" id="satValue">0%</span>
+    </div>
+    <div class="slider-row" id="lightRow">
+      <label for="lightSlider" data-i18n="light">明度</label>
+      <input type="range" id="lightSlider" min="0" max="100" step="1" value="50">
+      <span class="stepper">
+        <button type="button" class="step-btn" data-channel="l" data-dir="-1" aria-label="明度を1%減らす"><svg width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M5.5 1 2.5 4l3 3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button type="button" class="step-btn" data-channel="l" data-dir="1" aria-label="明度を1%増やす"><svg width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M2.5 1 5.5 4l-3 3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      </span>
+      <span class="slider-value" id="lightValue">50%</span>
+    </div>
+  </section>
+
+  <button class="primary-btn" id="submitButton" data-i18n="judge">判定する</button>
+</main>
+
+<!-- モード選択オーバーレイ -->
+<div class="overlay show" id="modeOverlay">
+  <div class="modal mode-modal">
+    <div class="brand-big">
+      <span class="brand-dot"></span>
+      <h2 data-i18n="appName">HSLトレーナー</h2>
+    </div>
+    <p class="tagline" data-i18n="tagline">色相・彩度・明度の見極めをトレーニング</p>
+    <button type="button" class="mode-card" data-mode="easy">
+      <span class="mode-name" data-i18n="easy">イージー</span>
+      <span class="mode-desc" data-i18n="easyDesc">明度は固定(30〜70%)— 色相と彩度だけ合わせる</span>
+      <span class="mode-best" id="easyBest">ベスト —</span>
+    </button>
+    <button type="button" class="mode-card" data-mode="normal">
+      <span class="mode-name" data-i18n="normal">ノーマル</span>
+      <span class="mode-desc" data-i18n="normalDesc">色相・彩度・明度をすべて合わせる</span>
+      <span class="mode-best" id="normalBest">ベスト —</span>
+    </button>
+    <button type="button" class="chip-btn lang-btn">EN</button>
+  </div>
+</div>
+
+<!-- 1問ごとの判定オーバーレイ -->
+<div class="overlay" id="resultOverlay">
+  <div class="modal">
+    <div class="grade-badge" id="gradeBadge">A</div>
+    <div class="score-line">
+      <span class="score-num" id="resultScore">0</span>
+      <span class="score-denom">/ 100</span>
+    </div>
+    <div class="delta-line" id="resultDelta">ΔE 0.0</div>
+    <div class="compare">
+      <div class="compare-half" id="cmpTarget"></div>
+      <div class="compare-half" id="cmpPlayer"></div>
+    </div>
+    <div class="compare-labels"><span data-i18n="target">ターゲット</span><span data-i18n="yours">あなたの色</span></div>
+    <div class="result-sliders">
+      <div class="rs-legend">
+        <span><i class="legend-dot you"></i> <span data-i18n="yours">あなたの色</span></span>
+        <span><i class="legend-dot target"></i> <span data-i18n="target">ターゲット</span></span>
+      </div>
+      <div class="result-slider">
+        <span class="rs-label" data-i18n="hue">色相</span>
+        <div class="result-track" id="rtHue">
+          <span class="marker target"></span><span class="marker you"></span>
+        </div>
+        <span class="rs-delta" id="rdHue"></span>
+      </div>
+      <div class="result-slider">
+        <span class="rs-label" data-i18n="sat">彩度</span>
+        <div class="result-track" id="rtSat">
+          <span class="marker target"></span><span class="marker you"></span>
+        </div>
+        <span class="rs-delta" id="rdSat"></span>
+      </div>
+      <div class="result-slider" id="rsLightRow">
+        <span class="rs-label" data-i18n="light">明度</span>
+        <div class="result-track" id="rtLight">
+          <span class="marker target"></span><span class="marker you"></span>
+        </div>
+        <span class="rs-delta" id="rdLight"></span>
+      </div>
+    </div>
+    <div class="hsl-lines" id="hslLines"></div>
+    <button class="primary-btn" id="nextButton" data-i18n="next">次の問題</button>
+  </div>
+</div>
+
+<!-- 10問終了後のサマリーオーバーレイ -->
+<div class="overlay" id="summaryOverlay">
+  <div class="modal">
+    <h2 data-i18n="sessionComplete">セッション完了</h2>
+    <div class="new-record" id="newRecord" hidden data-i18n="newRecord">新記録!</div>
+    <div class="summary-score">
+      <span class="score-num" id="summaryTotal">0</span>
+      <span class="score-denom" id="summaryDenom">/ 500</span>
+    </div>
+    <div class="summary-stats" id="summaryStats"></div>
+    <ul class="question-list" id="questionList"></ul>
+    <button class="primary-btn" id="restartButton" data-i18n="playAgain">もう一度</button>
+    <button class="secondary-btn" id="changeModeButton" data-i18n="changeMode">モードを選ぶ</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ============================================================
+// color-math (pure) — この区間はDOMに依存しない純粋関数
+// ============================================================
+const rad = d => d * Math.PI / 180;
+
+function hslToRgb(h, s, l) {
+  // h: 0-360, s: 0-100, l: 0-100 → [r, g, b] 各0-255
+  h = ((h % 360) + 360) % 360;
+  s /= 100;
+  l /= 100;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const hp = h / 60;
+  const x = c * (1 - Math.abs(hp % 2 - 1));
+  let r = 0, g = 0, b = 0;
+  if (hp < 1)      { r = c; g = x; }
+  else if (hp < 2) { r = x; g = c; }
+  else if (hp < 3) { g = c; b = x; }
+  else if (hp < 4) { g = x; b = c; }
+  else if (hp < 5) { r = x; b = c; }
+  else             { r = c; b = x; }
+  const m = l - c / 2;
+  return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+}
+
+function hslToLab(h, s, l) {
+  const [r, g, b] = hslToRgb(h, s, l);
+  const lin = v => {
+    v /= 255;
+    return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  };
+  const R = lin(r), G = lin(g), B = lin(b);
+  // D65 白点で正規化したXYZ → Lab
+  const x = (R * 0.4124564 + G * 0.3575761 + B * 0.1804375) / 0.95047;
+  const y = (R * 0.2126729 + G * 0.7151522 + B * 0.0721750) / 1.00000;
+  const z = (R * 0.0193339 + G * 0.1191920 + B * 0.9503041) / 1.08883;
+  const f = t => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+  const fx = f(x), fy = f(y), fz = f(z);
+  return { L: 116 * fy - 16, a: 500 * (fx - fy), b: 200 * (fy - fz) };
+}
+
+function ciede2000(lab1, lab2) {
+  // Sharma et al. (2005) の定式化によるCIEDE2000
+  const { L: L1, a: a1, b: b1 } = lab1;
+  const { L: L2, a: a2, b: b2 } = lab2;
+  const POW25_7 = 6103515625; // 25^7
+
+  const C1 = Math.hypot(a1, b1);
+  const C2 = Math.hypot(a2, b2);
+  const Cbar = (C1 + C2) / 2;
+  const Cbar7 = Math.pow(Cbar, 7);
+  const G = 0.5 * (1 - Math.sqrt(Cbar7 / (Cbar7 + POW25_7)));
+
+  const a1p = (1 + G) * a1;
+  const a2p = (1 + G) * a2;
+  const C1p = Math.hypot(a1p, b1);
+  const C2p = Math.hypot(a2p, b2);
+
+  const hueOf = (ap, b) => {
+    if (ap === 0 && b === 0) return 0;
+    let h = Math.atan2(b, ap) * 180 / Math.PI;
+    if (h < 0) h += 360;
+    return h;
+  };
+  const h1p = hueOf(a1p, b1);
+  const h2p = hueOf(a2p, b2);
+
+  const dLp = L2 - L1;
+  const dCp = C2p - C1p;
+
+  let dhp = 0;
+  if (C1p * C2p !== 0) {
+    dhp = h2p - h1p;
+    if (dhp > 180) dhp -= 360;
+    else if (dhp < -180) dhp += 360;
+  }
+  const dHp = 2 * Math.sqrt(C1p * C2p) * Math.sin(rad(dhp) / 2);
+
+  const Lbp = (L1 + L2) / 2;
+  const Cbp = (C1p + C2p) / 2;
+
+  let hbp;
+  if (C1p * C2p === 0) {
+    hbp = h1p + h2p;
+  } else if (Math.abs(h1p - h2p) <= 180) {
+    hbp = (h1p + h2p) / 2;
+  } else if (h1p + h2p < 360) {
+    hbp = (h1p + h2p + 360) / 2;
+  } else {
+    hbp = (h1p + h2p - 360) / 2;
+  }
+
+  const T = 1 - 0.17 * Math.cos(rad(hbp - 30)) + 0.24 * Math.cos(rad(2 * hbp))
+          + 0.32 * Math.cos(rad(3 * hbp + 6)) - 0.20 * Math.cos(rad(4 * hbp - 63));
+  const dTheta = 30 * Math.exp(-Math.pow((hbp - 275) / 25, 2));
+  const Cbp7 = Math.pow(Cbp, 7);
+  const RC = 2 * Math.sqrt(Cbp7 / (Cbp7 + POW25_7));
+  const SL = 1 + 0.015 * Math.pow(Lbp - 50, 2) / Math.sqrt(20 + Math.pow(Lbp - 50, 2));
+  const SC = 1 + 0.045 * Cbp;
+  const SH = 1 + 0.015 * Cbp * T;
+  const RT = -Math.sin(rad(2 * dTheta)) * RC;
+
+  const dL = dLp / SL;
+  const dC = dCp / SC;
+  const dH = dHp / SH;
+  return Math.sqrt(dL * dL + dC * dC + dH * dH + RT * dC * dH);
+}
+// ============================================================
+// color-math (pure) ここまで
+// ============================================================
+
+const TOTAL_QUESTIONS = 5;
+const BEST_KEY = 'colorTrainer.best';
+const HUE_RAINBOW =
+  'linear-gradient(to right, hsl(0,100%,50%), hsl(60,100%,50%), hsl(120,100%,50%), ' +
+  'hsl(180,100%,50%), hsl(240,100%,50%), hsl(300,100%,50%), hsl(360,100%,50%))';
+const GRADE_COLORS = {
+  S: '#ffd166',
+  A: '#69db7c',
+  B: '#74c0fc',
+  C: '#ffa94d',
+  D: '#ff8787'
+};
+const LANG_KEY = 'colorTrainer.lang';
+
+const I18N = {
+  ja: {
+    docTitle: 'HSLトレーナー — 色相・彩度トレーニング',
+    appName: 'HSLトレーナー',
+    tagline: '色相・彩度・明度の見極めをトレーニング',
+    target: 'ターゲット',
+    yours: 'あなたの色',
+    hue: '色相', sat: '彩度', light: '明度',
+    judge: '判定する', next: '次の問題', seeResults: '結果を見る',
+    playAgain: 'もう一度', changeMode: 'モードを選ぶ',
+    easy: 'イージー', normal: 'ノーマル',
+    easyDesc: '明度は固定(30〜70%)— 色相と彩度だけ合わせる',
+    normalDesc: '色相・彩度・明度をすべて合わせる',
+    sessionComplete: 'セッション完了', newRecord: '新記録!',
+    best: 'ベスト', total: '合計', pt: 'pt',
+    avgDeltaE: '平均 ΔE',
+    hueDec: '色相を1度減らす', hueInc: '色相を1度増やす',
+    satDec: '彩度を1%減らす', satInc: '彩度を1%増やす',
+    lightDec: '明度を1%減らす', lightInc: '明度を1%増やす'
+  },
+  en: {
+    docTitle: 'HSL Trainer — Hue, Saturation & Lightness Training',
+    appName: 'HSL Trainer',
+    tagline: 'Train your eye for hue, saturation & lightness',
+    target: 'Target',
+    yours: 'Yours',
+    hue: 'Hue', sat: 'Saturation', light: 'Lightness',
+    judge: 'Check', next: 'Next', seeResults: 'See Results',
+    playAgain: 'Play Again', changeMode: 'Change Mode',
+    easy: 'Easy', normal: 'Normal',
+    easyDesc: 'Lightness locked (30–70%) — match hue & saturation',
+    normalDesc: 'Match hue, saturation & lightness',
+    sessionComplete: 'Session Complete', newRecord: 'New Record!',
+    best: 'Best', total: 'Total', pt: 'pt',
+    avgDeltaE: 'Avg ΔE',
+    hueDec: 'Decrease hue by 1°', hueInc: 'Increase hue by 1°',
+    satDec: 'Decrease saturation by 1%', satInc: 'Increase saturation by 1%',
+    lightDec: 'Decrease lightness by 1%', lightInc: 'Increase lightness by 1%'
+  }
+};
+
+let lang = localStorage.getItem(LANG_KEY) === 'en' ? 'en' : 'ja';
+const t = key => I18N[lang][key];
+
+const state = {
+  mode: 'normal',             // 'easy' = 明度50%固定 / 'normal' = 全スライダー
+  qIndex: 0,                 // 現在の問題(1-origin)
+  target: { h: 0, s: 0, l: 0 },
+  player: { h: 0, s: 0, l: 50 },
+  results: []                // { score, deltaE, grade, target, player }
+};
+
+const $ = id => document.getElementById(id);
+const targetSwatch = $('targetSwatch');
+const playerSwatch = $('playerSwatch');
+const hueSlider = $('hueSlider');
+const satSlider = $('satSlider');
+const lightSlider = $('lightSlider');
+const hueValue = $('hueValue');
+const satValue = $('satValue');
+const lightValue = $('lightValue');
+const progressEl = $('progress');
+const totalLabel = $('totalLabel');
+const bestLabel = $('bestLabel');
+const submitButton = $('submitButton');
+const resultOverlay = $('resultOverlay');
+const summaryOverlay = $('summaryOverlay');
+const modeOverlay = $('modeOverlay');
+const modeChip = $('modeChip');
+
+const hslCss = ({ h, s, l }) => `hsl(${h}, ${s}%, ${l}%)`;
+const fmtSigned = (v, unit) => (v > 0 ? '+' : '') + v + unit;
+
+// 色相差は円周上の最短差で表示する
+function hueDiff(h1, h2) {
+  return ((h1 - h2) % 360 + 540) % 360 - 180;
+}
+
+function scoreFromDeltaE(dE) {
+  return Math.max(0, 100 - Math.round(dE * 4));
+}
+
+function gradeFromDeltaE(dE) {
+  if (dE < 2) return 'S';
+  if (dE < 5) return 'A';
+  if (dE < 10) return 'B';
+  if (dE < 20) return 'C';
+  return 'D';
+}
+
+function randomTarget() {
+  // 色相判別が不能になる極端な彩度・明度を避けて出題する
+  const base = {
+    h: Math.floor(Math.random() * 360),
+    s: 30 + Math.floor(Math.random() * 71),  // 30-100%
+    l: 25 + Math.floor(Math.random() * 51)   // 25-75%
+  };
+  if (state.mode === 'easy') base.l = 30 + Math.floor(Math.random() * 41); // 30-70%で固定
+  return base;
+}
+
+// ---------- 描画 ----------
+
+function renderSwatches() {
+  targetSwatch.style.background = hslCss(state.target);
+  playerSwatch.style.background = hslCss(state.player);
+}
+
+function renderSliders() {
+  const { h, s, l } = state.player;
+  hueSlider.value = h;
+  satSlider.value = s;
+  lightSlider.value = l;
+  hueValue.textContent = h + '°';
+  satValue.textContent = s + '%';
+  lightValue.textContent = l + '%';
+  // 彩度・明度のトラックは他チャンネルの現在値でグラデーションを更新
+  satSlider.style.background =
+    `linear-gradient(to right, hsl(${h}, 0%, ${l}%), hsl(${h}, 100%, ${l}%))`;
+  lightSlider.style.background =
+    `linear-gradient(to right, hsl(${h}, ${s}%, 0%), hsl(${h}, ${s}%, 50%), hsl(${h}, ${s}%, 100%))`;
+}
+
+function renderProgress() {
+  progressEl.innerHTML = '';
+  for (let i = 1; i <= TOTAL_QUESTIONS; i++) {
+    const dot = document.createElement('span');
+    dot.className = 'dot';
+    const result = state.results[i - 1];
+    if (result) {
+      dot.style.background = GRADE_COLORS[result.grade];
+    } else if (i === state.qIndex) {
+      dot.classList.add('current');
+    }
+    progressEl.appendChild(dot);
+  }
+}
+
+function renderHeader() {
+  const total = state.results.reduce((sum, r) => sum + r.score, 0);
+  totalLabel.textContent = `${t('total')} ${total} ${t('pt')}`;
+  modeChip.textContent = t(state.mode);
+}
+
+function bestKeyFor(mode) {
+  return `colorTrainer.best.${mode}`;
+}
+
+// 旧バージョン(モードなし)のベストスコアをノーマルモードの記録として引き継ぐ
+(function migrateBest() {
+  const legacy = localStorage.getItem(BEST_KEY);
+  if (legacy !== null && localStorage.getItem(bestKeyFor('normal')) === null) {
+    localStorage.setItem(bestKeyFor('normal'), legacy);
+  }
+})();
+
+function renderBest() {
+  const best = Number(localStorage.getItem(bestKeyFor(state.mode)) || 0);
+  bestLabel.textContent = best > 0 ? `${t('best')} ${best}` : `${t('best')} —`;
+}
+
+function renderModeBests() {
+  for (const mode of ['easy', 'normal']) {
+    const v = Number(localStorage.getItem(bestKeyFor(mode)) || 0);
+    $(mode + 'Best').textContent = v > 0 ? `${t('best')} ${v}` : `${t('best')} —`;
+  }
+}
+
+function applyLang() {
+  const d = I18N[lang];
+  document.title = d.docTitle;
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = d[el.dataset.i18n];
+  });
+  const ariaMap = {
+    h: ['hueDec', 'hueInc'],
+    s: ['satDec', 'satInc'],
+    l: ['lightDec', 'lightInc']
+  };
+  document.querySelectorAll('.step-btn').forEach(btn => {
+    btn.setAttribute('aria-label', d[ariaMap[btn.dataset.channel][btn.dataset.dir > 0 ? 1 : 0]]);
+  });
+  document.querySelectorAll('.lang-btn').forEach(b => {
+    b.textContent = lang === 'ja' ? 'EN' : '日本語';
+  });
+  renderBest();
+  renderHeader();
+  renderModeBests();
+}
+
+function popSwatches() {
+  for (const el of [targetSwatch, playerSwatch]) {
+    el.classList.remove('pop');
+    void el.offsetWidth; // アニメーションをやり直す
+    el.classList.add('pop');
+  }
+}
+
+// 結果画面のスライダー比較: トラックのグラデはターゲットの文脈で描き、
+// 白丸=あなたの位置、白リング=ターゲットの位置を重ねて表示する
+function renderResultSlider(trackId, deltaId, targetVal, playerVal, max, diff, unit) {
+  const track = $(trackId);
+  const t = state.target;
+  if (trackId === 'rtHue') track.style.background = HUE_RAINBOW;
+  else if (trackId === 'rtSat')
+    track.style.background = `linear-gradient(to right, hsl(${t.h}, 0%, ${t.l}%), hsl(${t.h}, 100%, ${t.l}%))`;
+  else
+    track.style.background = `linear-gradient(to right, hsl(${t.h}, ${t.s}%, 0%), hsl(${t.h}, ${t.s}%, 50%), hsl(${t.h}, ${t.s}%, 100%))`;
+  track.querySelector('.marker.target').style.left = (targetVal / max * 100) + '%';
+  track.querySelector('.marker.you').style.left = (playerVal / max * 100) + '%';
+  const delta = $(deltaId);
+  delta.textContent = fmtSigned(diff, unit);
+  delta.classList.toggle('zero', diff === 0);
+}
+
+// ---------- ゲーム進行 ----------
+
+function applyModeUi() {
+  const easy = state.mode === 'easy';
+  lightSlider.disabled = easy;
+  document.querySelectorAll('.step-btn[data-channel="l"]').forEach(b => {
+    b.disabled = easy;
+  });
+  $('lightRow').classList.toggle('locked', easy);
+  $('rsLightRow').style.display = easy ? 'none' : '';
+}
+
+function startSession(mode) {
+  if (mode) state.mode = mode;
+  state.qIndex = 0;
+  state.results = [];
+  applyModeUi();
+  modeOverlay.classList.remove('show');
+  summaryOverlay.classList.remove('show');
+  renderBest();
+  renderHeader();
+  newQuestion();
+}
+
+function newQuestion() {
+  state.qIndex++;
+  state.target = randomTarget();
+  // グレーから組み立てる。色相の初期位置はランダム(S=0では見えないため)。
+  // イージーは明度がロックされるため、ターゲットと同じ明度から始める
+  state.player = {
+    h: Math.floor(Math.random() * 360),
+    s: 0,
+    l: state.mode === 'easy' ? state.target.l : 50
+  };
+  resultOverlay.classList.remove('show');
+  renderSwatches();
+  renderSliders();
+  renderProgress();
+  renderHeader();
+  popSwatches();
+}
+
+function judge() {
+  const labT = hslToLab(state.target.h, state.target.s, state.target.l);
+  const labP = hslToLab(state.player.h, state.player.s, state.player.l);
+  const deltaE = ciede2000(labT, labP);
+  const score = scoreFromDeltaE(deltaE);
+  const grade = gradeFromDeltaE(deltaE);
+
+  state.results.push({ score, deltaE, grade, target: { ...state.target }, player: { ...state.player } });
+  renderProgress();
+  renderHeader();
+
+  const color = GRADE_COLORS[grade];
+  const badge = $('gradeBadge');
+  badge.textContent = grade;
+  badge.style.color = color;
+  badge.style.background = color + '22';
+
+  $('resultScore').textContent = score;
+  $('resultDelta').textContent = `ΔE ${deltaE.toFixed(1)}`;
+
+  $('cmpTarget').style.background = hslCss(state.target);
+  $('cmpPlayer').style.background = hslCss(state.player);
+
+  const dh = Math.round(hueDiff(state.player.h, state.target.h));
+  const ds = state.player.s - state.target.s;
+  const dl = state.player.l - state.target.l;
+  renderResultSlider('rtHue', 'rdHue', state.target.h, state.player.h, 359, dh, '°');
+  renderResultSlider('rtSat', 'rdSat', state.target.s, state.player.s, 100, ds, '%');
+  renderResultSlider('rtLight', 'rdLight', state.target.l, state.player.l, 100, dl, '%');
+
+  const f = c => `H ${c.h}° / S ${c.s}% / L ${c.l}%`;
+  $('hslLines').innerHTML =
+    `<div>${t('target')} ${f(state.target)}</div>` +
+    `<div>${t('yours')} ${f(state.player)}</div>`;
+
+  $('nextButton').textContent = state.qIndex < TOTAL_QUESTIONS ? t('next') : t('seeResults');
+  resultOverlay.classList.add('show');
+  $('nextButton').focus();
+}
+
+function nextStep() {
+  if (state.qIndex < TOTAL_QUESTIONS) {
+    newQuestion();
+  } else {
+    showSummary();
+  }
+}
+
+function showSummary() {
+  resultOverlay.classList.remove('show');
+  const total = state.results.reduce((sum, r) => sum + r.score, 0);
+  const avgDeltaE = state.results.reduce((sum, r) => sum + r.deltaE, 0) / state.results.length;
+  const prevBest = Number(localStorage.getItem(bestKeyFor(state.mode)) || 0);
+  const isRecord = total > prevBest;
+  if (isRecord) localStorage.setItem(bestKeyFor(state.mode), String(total));
+
+  $('summaryTotal').textContent = total;
+  $('summaryDenom').textContent = `/ ${TOTAL_QUESTIONS * 100}`;
+  $('newRecord').hidden = !isRecord;
+  const best = Math.max(total, prevBest);
+  const bestText = best > 0 ? `${t('best')} ${best}` : `${t('best')} —`;
+  $('summaryStats').textContent = `${t('avgDeltaE')} ${avgDeltaE.toFixed(1)} / ${bestText}`;
+
+  $('questionList').innerHTML = state.results.map((r, i) => `
+    <li>
+      <span class="q-idx">Q${i + 1}</span>
+      <span class="mini-swatches">
+        <i style="background:${hslCss(r.target)}"></i><i style="background:${hslCss(r.player)}"></i>
+      </span>
+      <span class="q-grade" style="color:${GRADE_COLORS[r.grade]}">${r.grade}</span>
+      <span class="q-score">${r.score} pt</span>
+      <span class="q-score">ΔE ${r.deltaE.toFixed(1)}</span>
+    </li>`).join('');
+
+  renderBest();
+  summaryOverlay.classList.add('show');
+  $('restartButton').focus();
+}
+
+// ---------- イベント ----------
+
+function onSliderInput() {
+  state.player = {
+    h: Number(hueSlider.value),
+    s: Number(satSlider.value),
+    l: Number(lightSlider.value)
+  };
+  renderSwatches();
+  renderSliders();
+}
+
+for (const slider of [hueSlider, satSlider, lightSlider]) {
+  slider.addEventListener('input', onSliderInput);
+}
+
+// ◀▶ボタン: クリックで±1の微調整。色相は円周なので端で折り返す
+document.querySelectorAll('.step-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (btn.disabled) return;
+    const dir = Number(btn.dataset.dir);
+    const p = state.player;
+    if (btn.dataset.channel === 'h') {
+      p.h = (p.h + dir + 360) % 360;
+    } else if (btn.dataset.channel === 's') {
+      p.s = Math.min(100, Math.max(0, p.s + dir));
+    } else {
+      p.l = Math.min(100, Math.max(0, p.l + dir));
+    }
+    renderSwatches();
+    renderSliders();
+  });
+});
+
+submitButton.addEventListener('click', judge);
+$('nextButton').addEventListener('click', nextStep);
+$('restartButton').addEventListener('click', () => startSession());
+$('changeModeButton').addEventListener('click', () => {
+  summaryOverlay.classList.remove('show');
+  renderModeBests();
+  modeOverlay.classList.add('show');
+});
+modeChip.addEventListener('click', () => {
+  resultOverlay.classList.remove('show');
+  summaryOverlay.classList.remove('show');
+  renderModeBests();
+  modeOverlay.classList.add('show');
+});
+document.querySelectorAll('.mode-card').forEach(card => {
+  card.addEventListener('click', () => startSession(card.dataset.mode));
+});
+document.querySelectorAll('.lang-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    lang = lang === 'ja' ? 'en' : 'ja';
+    localStorage.setItem(LANG_KEY, lang);
+    applyLang();
+  });
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  if (summaryOverlay.classList.contains('show')) return;
+  if (modeOverlay.classList.contains('show')) return;
+  e.preventDefault();
+  if (resultOverlay.classList.contains('show')) nextStep();
+  else judge();
+});
+
+// ---------- 初期化 ----------
+
+// 色相トラックは固定のレインボー
+hueSlider.style.background = HUE_RAINBOW;
+
+applyModeUi();
+applyLang();
+// モード選択画面の背面に初期表示(モードを選ぶとリセットされる)
+newQuestion();
+</script>
+</body>
+</html>
