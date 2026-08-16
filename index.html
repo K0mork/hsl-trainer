@@ -456,7 +456,20 @@
   }
 
   /* ---------- サマリー ---------- */
-  .modal h2 { margin: 0; font-size: 15px; color: var(--muted); font-weight: 600; letter-spacing: 0.6px; }
+  .summary-head { display: flex; align-items: center; gap: 8px; }
+
+  .summary-head h2 { margin: 0; font-size: 15px; color: var(--muted); font-weight: 600; letter-spacing: 0.6px; }
+
+  .mode-tag {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-weight: 600;
+    letter-spacing: 0.4px;
+  }
 
   .summary-score { display: flex; align-items: baseline; gap: 6px; }
 
@@ -654,7 +667,10 @@
 <!-- 10問終了後のサマリーオーバーレイ -->
 <div class="overlay" id="summaryOverlay">
   <div class="modal">
-    <h2 data-i18n="sessionComplete">セッション完了</h2>
+    <div class="summary-head">
+      <h2 data-i18n="sessionComplete">セッション完了</h2>
+      <span class="mode-tag" id="summaryMode">ノーマル</span>
+    </div>
     <div class="new-record" id="newRecord" hidden data-i18n="newRecord">新記録!</div>
     <div class="summary-score">
       <span class="score-num" id="summaryTotal">0</span>
@@ -1101,6 +1117,7 @@ function nextStep() {
 
 function showSummary() {
   resultOverlay.classList.remove('show');
+  $('summaryMode').textContent = t(state.mode);
   const total = state.results.reduce((sum, r) => sum + r.score, 0);
   const avgDeltaE = state.results.reduce((sum, r) => sum + r.deltaE, 0) / state.results.length;
   const prevBest = Number(localStorage.getItem(bestKeyFor(state.mode)) || 0);
