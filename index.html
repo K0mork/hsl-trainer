@@ -131,6 +131,26 @@
 
   .timer-row.low { color: #ff8787; }
 
+  .retire-tag {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    color: #ff8787;
+    background: rgba(255, 135, 135, 0.12);
+    border: 1px solid rgba(255, 135, 135, 0.35);
+    padding: 2px 8px;
+    border-radius: 999px;
+    vertical-align: 1px;
+  }
+
+  .streak-label {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+
   /* ---------- スウォッチ ---------- */
   .swatches {
     display: grid;
@@ -638,6 +658,11 @@
       <span class="mode-desc" data-i18n="timeattackDesc">時間制限つき。すばやく正確に合わせる</span>
       <span class="mode-best" id="timeattackBest">ベスト —</span>
     </button>
+    <button type="button" class="mode-card" data-mode="nightmare">
+      <span class="mode-name" data-i18n="nightmare">ナイトメア</span>
+      <span class="mode-desc" data-i18n="nightmareDesc">95点以下で即終了。連続成功回数を競う(カンスト100回)</span>
+      <span class="mode-best" id="nightmareBest">ベスト —</span>
+    </button>
     <button type="button" class="chip-btn lang-btn">EN</button>
   </div>
 </div>
@@ -663,7 +688,7 @@
       <span class="score-num" id="resultScore">0</span>
       <span class="score-denom">/ 100</span>
     </div>
-    <div class="delta-line" id="resultDelta">ΔE 0.0</div>
+    <div class="delta-line"><span id="resultDelta">ΔE 0.0</span> <span class="retire-tag" id="retireTag" hidden>リタイア</span></div>
     <div class="compare">
       <div class="compare-half" id="cmpTarget"></div>
       <div class="compare-half" id="cmpPlayer"></div>
@@ -856,9 +881,24 @@ const TIME_ATTACK = {
 };
 (function applyTaParams() {
   const p = new URLSearchParams(location.search);
-  if (p.has('taplay'))   TIME_ATTACK.playSeconds = Math.max(1, Number(p.get('taplay')) || 30);
-  if (p.has('taresult')) TIME_ATTACK.resultSeconds = Math.max(0, Number(p.get('taresult')) || 5);
-  if (p.has('tarounds')) TIME_ATTACK.rounds = Math.max(1, Number(p.get('tarounds')) || 10);
+  // 0も有効な値なので falsy フォールバックではなく NaN で判定する
+  const num = key => Number(p.get(key));
+  if (p.has('taplay')   && !Number.isNaN(num('taplay')))   TIME_ATTACK.playSeconds = Math.max(1, num('taplay'));
+  if (p.has('taresult') && !Number.isNaN(num('taresult'))) TIME_ATTACK.resultSeconds = Math.max(0, num('taresult'));
+  if (p.has('tarounds') && !Number.isNaN(num('tarounds'))) TIME_ATTACK.rounds = Math.max(1, num('tarounds'));
+})();
+
+// ナイトメアの設定。URLパラメータでも上書きできる:
+//   ?napass=90(合格ライン) &nacap=50(カンスト回数)
+const NIGHTMARE = {
+  passScore: 96,
+  capRounds: 100
+};
+(function applyNmParams() {
+  const p = new URLSearchParams(location.search);
+  const num = key => Number(p.get(key));
+  if (p.has('napass') && !Number.isNaN(num('napass'))) NIGHTMARE.passScore = Math.min(100, Math.max(0, num('napass')));
+  if (p.has('nacap')  && !Number.isNaN(num('nacap')))  NIGHTMARE.capRounds = Math.min(1000, Math.max(1, num('nacap')));
 })();
 
 const I18N = {
@@ -878,6 +918,10 @@ const I18N = {
     timeattackDesc: '時間制限つき。すばやく正確に合わせる',
     taStartInfoFmt: '全{r}問・1問{p}秒・リザルト{s}秒',
     start: 'スタート',
+    nightmare: 'ナイトメア',
+    nightmareDesc: '95点以下で即終了。連続成功回数を競う(カンスト100回)',
+    streakFmt: '連続 {n}回',
+    retire: 'リタイア',
     sessionComplete: 'セッション完了', newRecord: '新記録!',
     best: 'ベスト', total: '合計', pt: 'pt',
     avgDeltaE: '平均 ΔE',
@@ -901,6 +945,10 @@ const I18N = {
     timeattackDesc: 'Beat the clock — match fast & precisely',
     taStartInfoFmt: '{r} rounds · {p}s each · {s}s results',
     start: 'Start',
+    nightmare: 'Nightmare',
+    nightmareDesc: 'Score below 96 ends the run — chase the streak (cap 100)',
+    streakFmt: 'Streak {n}',
+    retire: 'Game Over',
     sessionComplete: 'Session Complete', newRecord: 'New Record!',
     best: 'Best', total: 'Total', pt: 'pt',
     avgDeltaE: 'Avg ΔE',
@@ -914,8 +962,10 @@ let lang = localStorage.getItem(LANG_KEY) === 'en' ? 'en' : 'ja';
 const t = key => I18N[lang][key];
 
 const state = {
-  mode: 'normal',             // 'easy' = 明度50%固定 / 'normal' = 全スライダー
+  mode: 'normal',             // 'easy' / 'normal' / 'timeattack' / 'nightmare'
   qIndex: 0,                 // 現在の問題(1-origin)
+  streak: 0,                 // ナイトメア: 連続成功数
+  nmOver: null,              // ナイトメア: 終了理由 ('fail' | 'cap' | null)
   target: { h: 0, s: 0, l: 0 },
   player: { h: 0, s: 0, l: 50 },
   results: []                // { score, deltaE, grade, target, player }
@@ -1000,6 +1050,13 @@ function renderSliders() {
 
 function renderProgress() {
   progressEl.innerHTML = '';
+  if (state.mode === 'nightmare') {
+    const label = document.createElement('span');
+    label.className = 'streak-label';
+    label.textContent = t('streakFmt').replace('{n}', state.streak);
+    progressEl.appendChild(label);
+    return;
+  }
   for (let i = 1; i <= questionsFor(state.mode); i++) {
     const dot = document.createElement('span');
     dot.className = 'dot';
@@ -1014,8 +1071,12 @@ function renderProgress() {
 }
 
 function renderHeader() {
-  const total = state.results.reduce((sum, r) => sum + r.score, 0);
-  totalLabel.textContent = `${t('total')} ${total} ${t('pt')}`;
+  if (state.mode === 'nightmare') {
+    totalLabel.textContent = t('streakFmt').replace('{n}', state.streak);
+  } else {
+    const total = state.results.reduce((sum, r) => sum + r.score, 0);
+    totalLabel.textContent = `${t('total')} ${total} ${t('pt')}`;
+  }
   modeChip.textContent = t(state.mode);
 }
 
@@ -1041,7 +1102,7 @@ function renderBest() {
 }
 
 function renderModeBests() {
-  for (const mode of ['easy', 'normal', 'timeattack']) {
+  for (const mode of ['easy', 'normal', 'timeattack', 'nightmare']) {
     const v = bestValueFor(mode);
     $(mode + 'Best').textContent = v > 0 ? `${t('best')} ${v}` : `${t('best')} —`;
   }
@@ -1073,6 +1134,7 @@ function applyLang() {
   });
   renderBest();
   renderHeader();
+  renderProgress();
   renderModeBests();
   renderTaStartInfo();
 }
@@ -1179,6 +1241,8 @@ function startSession(mode) {
   if (mode) state.mode = mode;
   state.qIndex = 0;
   state.results = [];
+  state.streak = 0;
+  state.nmOver = null;
   clearTimers();
   applyModeUi();
   modeOverlay.classList.remove('show');
@@ -1225,6 +1289,14 @@ function judge() {
   const grade = gradeFromDeltaE(deltaE);
 
   state.results.push({ score, deltaE, grade, target: { ...state.target }, player: { ...state.player } });
+  if (state.mode === 'nightmare') {
+    if (score >= NIGHTMARE.passScore) {
+      state.streak++;
+      if (state.streak >= NIGHTMARE.capRounds) state.nmOver = 'cap'; // カンスト完走
+    } else {
+      state.nmOver = 'fail';
+    }
+  }
   renderProgress();
   renderHeader();
 
@@ -1236,6 +1308,8 @@ function judge() {
 
   $('resultScore').textContent = score;
   $('resultDelta').textContent = `ΔE ${deltaE.toFixed(1)}`;
+  $('retireTag').hidden = !(state.mode === 'nightmare' && state.nmOver === 'fail');
+  $('retireTag').textContent = t('retire');
 
   $('cmpTarget').style.background = hslCss(state.target);
   $('cmpPlayer').style.background = hslCss(state.player);
@@ -1252,21 +1326,27 @@ function judge() {
     `<div>${t('target')} ${f(state.target)}</div>` +
     `<div>${t('yours')} ${f(state.player)}</div>`;
 
-  $('nextButton').textContent = state.qIndex < questionsFor(state.mode) ? t('next') : t('seeResults');
+  $('nextButton').textContent = sessionEnded() ? t('seeResults') : t('next');
   resultOverlay.classList.add('show');
   $('nextButton').focus();
   // 最終問のリザルトはボタンで次へ進む(自動送りしない)
-  if (state.mode === 'timeattack' && state.qIndex < questionsFor(state.mode) && TIME_ATTACK.resultSeconds > 0) {
+  if (state.mode === 'timeattack' && !sessionEnded() && TIME_ATTACK.resultSeconds > 0) {
     startResultAutoAdvance();
   }
 }
 
+// セッションが終了条件を満たしているか(固定問数モードは最終問到達、ナイトメアは失敗/カンスト)
+function sessionEnded() {
+  if (state.mode === 'nightmare') return state.nmOver !== null;
+  return state.qIndex >= questionsFor(state.mode);
+}
+
 function nextStep() {
   clearTimers();
-  if (state.qIndex < questionsFor(state.mode)) {
-    newQuestion();
-  } else {
+  if (sessionEnded()) {
     showSummary();
+  } else {
+    newQuestion();
   }
 }
 
@@ -1274,11 +1354,14 @@ function showSummary() {
   resultOverlay.classList.remove('show');
   clearTimers();
   $('summaryMode').textContent = t(state.mode);
-  const total = state.results.reduce((sum, r) => sum + r.score, 0);
+  // ナイトメアは合計点ではなく連続成功回数を成績とする
+  const total = state.mode === 'nightmare'
+    ? state.streak
+    : state.results.reduce((sum, r) => sum + r.score, 0);
   const avgDeltaE = state.results.reduce((sum, r) => sum + r.deltaE, 0) / state.results.length;
 
   $('summaryTotal').textContent = total;
-  $('summaryDenom').textContent = `/ ${questionsFor(state.mode) * 100}`;
+  $('summaryDenom').textContent = `/ ${state.mode === 'nightmare' ? NIGHTMARE.capRounds : questionsFor(state.mode) * 100}`;
 
   const prevBest = Number(localStorage.getItem(bestKeyFor(state.mode)) || 0);
   const isRecord = total > prevBest;
