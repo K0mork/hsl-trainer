@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="color-scheme" content="dark">
 <title>HSLトレーナー — 色相・彩度トレーニング</title>
 <style>
@@ -18,13 +18,31 @@
 
   * { box-sizing: border-box; }
 
+  /* タップ連打時のダブルタップズームを無効化(ピンチズームとスクロールは維持) */
+  * { touch-action: manipulation; }
+
+  /* スライダー操作中のタッチが縦スクロールに横取りされるのを防止 */
+  input[type="range"] { touch-action: none; }
+
+  /* 画面端でのプルトゥリフレッシュ・バウンスを抑制 */
+  body { overscroll-behavior: none; }
+
+  /* iOS長押し時のテキスト選択(ドラッグモード)とコールアウトを無効化 */
+  * {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
   body {
     margin: 0;
     min-height: 100vh;
+    min-height: 100dvh;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 24px 16px;
+    padding: max(24px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+             max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
     background: var(--bg);
     color: var(--text);
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Hiragino Sans", "Noto Sans JP", sans-serif;
@@ -88,6 +106,7 @@
 
   .chip-btn {
     padding: 4px 10px;
+    min-height: 44px;
     border-radius: 999px;
     background: var(--panel-2);
     border: 1px solid var(--border);
@@ -194,8 +213,8 @@
   .stepper { display: inline-flex; gap: 4px; }
 
   .step-btn {
-    width: 24px;
-    height: 24px;
+    width: 44px;
+    height: 44px;
     padding: 0;
     display: inline-flex;
     align-items: center;
@@ -351,6 +370,7 @@
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.2s;
+    overscroll-behavior: contain;
   }
 
   .overlay.show { opacity: 1; pointer-events: auto; }
@@ -359,6 +379,7 @@
     width: min(92vw, 420px);
     max-height: calc(100vh - 48px);
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     background: var(--panel);
     border: 1px solid var(--border);
     border-radius: var(--radius);
@@ -566,6 +587,7 @@
   @media (max-width: 420px) {
     .card { padding: 20px 18px 22px; }
     .swatch { height: 130px; }
+    .slider-row { grid-template-columns: 30px minmax(52px, 1fr) auto 42px; gap: 8px; }
   }
 </style>
 </head>
@@ -1171,6 +1193,106 @@ let sessionToken = 0;
 let roundTimerId = null;
 let resultTickId = null;
 
+// iOSではモーダルを閉じた直後の連打が、表示された背面のボタンへの
+// clickとして届くことがある。画面遷移直後だけ次のclickを捨てる。
+// ただし遷移後に新たな指の押下(pointerdown)を伴うクリックは
+// ユーザーの正当な操作なので通す(例: カード→スタートの高速連打)。
+let activationLockedUntil = 0;
+let pressedSinceLock = false;
+
+document.addEventListener('pointerdown', () => {
+  pressedSinceLock = true;
+}, true);
+
+function lockActivations(ms = 450) {
+  activationLockedUntil = Math.max(activationLockedUntil, performance.now() + ms);
+  pressedSinceLock = false;
+}
+
+document.addEventListener('click', event => {
+  if (performance.now() >= activationLockedUntil) return;
+  if (pressedSinceLock) return; // ロック後に新しい押下を伴う正当なクリック
+  event.preventDefault();
+  event.stopImmediatePropagation();
+}, true);
+
+// Safariがtouch-action / viewportの指定を無視する環境向けの最終防衛線。
+// clickが作られる前の2回目のtouchendだけを止め、1本指スクロールとピンチは残す。
+const DOUBLE_TAP_DELAY = 250;
+const DOUBLE_TAP_DISTANCE = 48;
+const TAP_MOVE_TOLERANCE = 12;
+let tapStart = null;
+let lastTapEnd = null;
+let multiTouchGesture = false;
+
+const touchDistance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+
+document.addEventListener('touchstart', event => {
+  if (event.touches.length !== 1) {
+    multiTouchGesture = true;
+    tapStart = null;
+    lastTapEnd = null;
+    return;
+  }
+  if (multiTouchGesture) return;
+  const touch = event.touches[0];
+  tapStart = { x: touch.clientX, y: touch.clientY };
+}, { passive: true });
+
+document.addEventListener('touchmove', event => {
+  if (!tapStart || event.touches.length !== 1) return;
+  const touch = event.touches[0];
+  if (touchDistance(tapStart, { x: touch.clientX, y: touch.clientY }) > TAP_MOVE_TOLERANCE) {
+    tapStart = null;
+    lastTapEnd = null;
+  }
+}, { passive: true });
+
+document.addEventListener('touchend', event => {
+  if (multiTouchGesture) {
+    if (event.touches.length === 0) multiTouchGesture = false;
+    tapStart = null;
+    return;
+  }
+  if (!tapStart || event.touches.length !== 0 || event.changedTouches.length !== 1) {
+    tapStart = null;
+    return;
+  }
+
+  const touch = event.changedTouches[0];
+  const end = { x: touch.clientX, y: touch.clientY, time: performance.now() };
+  const isTap = touchDistance(tapStart, end) <= TAP_MOVE_TOLERANCE;
+  tapStart = null;
+  if (!isTap) {
+    lastTapEnd = null;
+    return;
+  }
+
+  const isDoubleTap = lastTapEnd
+    && end.time - lastTapEnd.time <= DOUBLE_TAP_DELAY
+    && touchDistance(lastTapEnd, end) <= DOUBLE_TAP_DISTANCE;
+  if (isDoubleTap) {
+    if (event.cancelable) event.preventDefault();
+    // preventDefaultはclickの生成も止めてしまうため、ボタン上の
+    // 2回目のタップに相当するclickを補って発行する(連打の間引き防止)。
+    // 合成clickはゴーストクリック判定を通過する(このタップのpointerdownは
+    // 直前に記録済みのため)。
+    const btn = event.target && event.target.closest ? event.target.closest('button') : null;
+    if (btn && !btn.disabled) {
+      btn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    }
+    lastTapEnd = null;
+    return;
+  }
+  lastTapEnd = end;
+}, { passive: false });
+
+document.addEventListener('touchcancel', () => {
+  tapStart = null;
+  lastTapEnd = null;
+  multiTouchGesture = false;
+}, { passive: true });
+
 function clearTimers() {
   clearInterval(roundTimerId);
   clearTimeout(roundTimerId);
@@ -1238,6 +1360,7 @@ function applyModeUi() {
 }
 
 function startSession(mode) {
+  lockActivations();
   if (mode) state.mode = mode;
   state.qIndex = 0;
   state.results = [];
@@ -1280,6 +1403,7 @@ function newQuestion() {
 
 function judge() {
   if (resultOverlay.classList.contains('show')) return; // 二重判定のガード
+  lockActivations();
   clearTimers();
   timerRow.hidden = true;
   const labT = hslToLab(state.target.h, state.target.s, state.target.l);
@@ -1342,6 +1466,10 @@ function sessionEnded() {
 }
 
 function nextStep() {
+  // タイムアタックの自動送りとユーザーのタップが同じ瞬間に競合しても、
+  // すでに閉じた結果画面から次の問題まで飛ばさない。
+  if (!resultOverlay.classList.contains('show')) return;
+  lockActivations();
   clearTimers();
   if (sessionEnded()) {
     showSummary();
@@ -1425,12 +1553,14 @@ submitButton.addEventListener('click', judge);
 $('nextButton').addEventListener('click', nextStep);
 $('restartButton').addEventListener('click', () => startSession());
 $('changeModeButton').addEventListener('click', () => {
+  lockActivations();
   clearTimers();
   summaryOverlay.classList.remove('show');
   renderModeBests();
   modeOverlay.classList.add('show');
 });
 modeChip.addEventListener('click', () => {
+  lockActivations();
   clearTimers();
   timerRow.hidden = true;
   resultOverlay.classList.remove('show');
@@ -1442,6 +1572,7 @@ document.querySelectorAll('.mode-card').forEach(card => {
   card.addEventListener('click', () => {
     const mode = card.dataset.mode;
     if (mode === 'timeattack') {
+      lockActivations();
       // タイムアタックはスタートボタンを押してからカウントダウン開始
       modeOverlay.classList.remove('show');
       renderTaStartInfo();
@@ -1454,6 +1585,7 @@ document.querySelectorAll('.mode-card').forEach(card => {
 });
 $('taStartButton').addEventListener('click', () => startSession('timeattack'));
 $('taBackButton').addEventListener('click', () => {
+  lockActivations();
   taStartOverlay.classList.remove('show');
   renderModeBests();
   modeOverlay.classList.add('show');
