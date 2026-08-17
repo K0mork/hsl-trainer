@@ -118,6 +118,19 @@
     box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.14);
   }
 
+  /* ---------- タイムアタック用タイマー ---------- */
+  .timer-row {
+    text-align: center;
+    margin: -8px 0 14px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .timer-row.low { color: #ff8787; }
+
   /* ---------- スウォッチ ---------- */
   .swatches {
     display: grid;
@@ -324,6 +337,8 @@
 
   .modal {
     width: min(92vw, 420px);
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
     background: var(--panel);
     border: 1px solid var(--border);
     border-radius: var(--radius);
@@ -552,6 +567,10 @@
 
   <div class="progress" id="progress"></div>
 
+  <div class="timer-row" id="timerRow" hidden>
+    <span class="timer-label" id="timerLabel">残り 30.0s</span>
+  </div>
+
   <section class="swatches">
     <div>
       <span class="swatch-label" data-i18n="target">ターゲット</span>
@@ -614,7 +633,25 @@
       <span class="mode-desc" data-i18n="normalDesc">色相・彩度・明度をすべて合わせる</span>
       <span class="mode-best" id="normalBest">ベスト —</span>
     </button>
+    <button type="button" class="mode-card" data-mode="timeattack">
+      <span class="mode-name" data-i18n="timeattack">タイムアタック</span>
+      <span class="mode-desc" data-i18n="timeattackDesc">時間制限つき。すばやく正確に合わせる</span>
+      <span class="mode-best" id="timeattackBest">ベスト —</span>
+    </button>
     <button type="button" class="chip-btn lang-btn">EN</button>
+  </div>
+</div>
+
+<!-- タイムアタック用スタート画面 -->
+<div class="overlay" id="taStartOverlay">
+  <div class="modal">
+    <div class="brand-big">
+      <span class="brand-dot"></span>
+      <h2 data-i18n="timeattack">タイムアタック</h2>
+    </div>
+    <p class="tagline" id="taStartInfo">全10問・1問30秒・リザルト5秒</p>
+    <button class="primary-btn" id="taStartButton" data-i18n="start">スタート</button>
+    <button class="secondary-btn" id="taBackButton" data-i18n="changeMode">モードを選ぶ</button>
   </div>
 </div>
 
@@ -810,6 +847,20 @@ const GRADE_COLORS = {
 };
 const LANG_KEY = 'colorTrainer.lang';
 
+// タイムアタックの設定。テストプレイ時はURLパラメータでも上書きできる:
+//   ?taplay=6(1問の秒) &taresult=2(リザルト秒) &tarounds=3(問数)
+const TIME_ATTACK = {
+  rounds: 10,
+  playSeconds: 30,
+  resultSeconds: 5
+};
+(function applyTaParams() {
+  const p = new URLSearchParams(location.search);
+  if (p.has('taplay'))   TIME_ATTACK.playSeconds = Math.max(1, Number(p.get('taplay')) || 30);
+  if (p.has('taresult')) TIME_ATTACK.resultSeconds = Math.max(0, Number(p.get('taresult')) || 5);
+  if (p.has('tarounds')) TIME_ATTACK.rounds = Math.max(1, Number(p.get('tarounds')) || 10);
+})();
+
 const I18N = {
   ja: {
     docTitle: 'HSLトレーナー — 色相・彩度トレーニング',
@@ -823,6 +874,10 @@ const I18N = {
     easy: 'イージー', normal: 'ノーマル',
     easyDesc: '明度は固定(30〜70%)— 色相と彩度だけ合わせる',
     normalDesc: '色相・彩度・明度をすべて合わせる',
+    timeattack: 'タイムアタック',
+    timeattackDesc: '時間制限つき。すばやく正確に合わせる',
+    taStartInfoFmt: '全{r}問・1問{p}秒・リザルト{s}秒',
+    start: 'スタート',
     sessionComplete: 'セッション完了', newRecord: '新記録!',
     best: 'ベスト', total: '合計', pt: 'pt',
     avgDeltaE: '平均 ΔE',
@@ -842,6 +897,10 @@ const I18N = {
     easy: 'Easy', normal: 'Normal',
     easyDesc: 'Lightness locked (30–70%) — match hue & saturation',
     normalDesc: 'Match hue, saturation & lightness',
+    timeattack: 'Time Attack',
+    timeattackDesc: 'Beat the clock — match fast & precisely',
+    taStartInfoFmt: '{r} rounds · {p}s each · {s}s results',
+    start: 'Start',
     sessionComplete: 'Session Complete', newRecord: 'New Record!',
     best: 'Best', total: 'Total', pt: 'pt',
     avgDeltaE: 'Avg ΔE',
@@ -879,9 +938,15 @@ const resultOverlay = $('resultOverlay');
 const summaryOverlay = $('summaryOverlay');
 const modeOverlay = $('modeOverlay');
 const modeChip = $('modeChip');
+const taStartOverlay = $('taStartOverlay');
+const timerRow = $('timerRow');
+const timerLabel = $('timerLabel');
 
 const hslCss = ({ h, s, l }) => `hsl(${h}, ${s}%, ${l}%)`;
 const fmtSigned = (v, unit) => (v > 0 ? '+' : '') + v + unit;
+
+// モードごとの1セットの問数
+const questionsFor = mode => (mode === 'timeattack' ? TIME_ATTACK.rounds : TOTAL_QUESTIONS);
 
 // 色相差は円周上の最短差で表示する
 function hueDiff(h1, h2) {
@@ -935,7 +1000,7 @@ function renderSliders() {
 
 function renderProgress() {
   progressEl.innerHTML = '';
-  for (let i = 1; i <= TOTAL_QUESTIONS; i++) {
+  for (let i = 1; i <= questionsFor(state.mode); i++) {
     const dot = document.createElement('span');
     dot.className = 'dot';
     const result = state.results[i - 1];
@@ -966,16 +1031,27 @@ function bestKeyFor(mode) {
   }
 })();
 
+function bestValueFor(mode) {
+  return Number(localStorage.getItem(bestKeyFor(mode)) || 0);
+}
+
 function renderBest() {
-  const best = Number(localStorage.getItem(bestKeyFor(state.mode)) || 0);
+  const best = bestValueFor(state.mode);
   bestLabel.textContent = best > 0 ? `${t('best')} ${best}` : `${t('best')} —`;
 }
 
 function renderModeBests() {
-  for (const mode of ['easy', 'normal']) {
-    const v = Number(localStorage.getItem(bestKeyFor(mode)) || 0);
+  for (const mode of ['easy', 'normal', 'timeattack']) {
+    const v = bestValueFor(mode);
     $(mode + 'Best').textContent = v > 0 ? `${t('best')} ${v}` : `${t('best')} —`;
   }
+}
+
+function renderTaStartInfo() {
+  $('taStartInfo').textContent = t('taStartInfoFmt')
+    .replace('{r}', TIME_ATTACK.rounds)
+    .replace('{p}', TIME_ATTACK.playSeconds)
+    .replace('{s}', TIME_ATTACK.resultSeconds);
 }
 
 function applyLang() {
@@ -998,6 +1074,7 @@ function applyLang() {
   renderBest();
   renderHeader();
   renderModeBests();
+  renderTaStartInfo();
 }
 
 function popSwatches() {
@@ -1025,6 +1102,67 @@ function renderResultSlider(trackId, deltaId, targetVal, playerVal, max, diff, u
   delta.classList.toggle('zero', diff === 0);
 }
 
+// ---------- タイマー管理(タイムアタック) ----------
+// sessionTokenをnewQuestionごとに増やし、古いタイマーの発火を無効化する。
+// 時刻はDate.now()基準なので、タブをバックグラウンドにしても総時間は狂わない
+let sessionToken = 0;
+let roundTimerId = null;
+let resultTickId = null;
+
+function clearTimers() {
+  clearInterval(roundTimerId);
+  clearTimeout(roundTimerId);
+  clearInterval(resultTickId);
+  clearTimeout(resultTickId);
+  roundTimerId = null;
+  resultTickId = null;
+}
+
+function timerText(ms) {
+  const s = (ms / 1000).toFixed(1);
+  return lang === 'ja' ? `残り ${s}s` : `${s}s left`;
+}
+
+function startRoundTimer() {
+  const token = sessionToken;
+  const deadline = Date.now() + TIME_ATTACK.playSeconds * 1000;
+  const update = () => {
+    const remain = deadline - Date.now();
+    timerLabel.textContent = timerText(Math.max(0, remain));
+    timerRow.classList.toggle('low', remain <= 5000);
+    if (remain <= 0) {
+      clearTimers();
+      judge();
+    }
+  };
+  roundTimerId = setInterval(() => {
+    if (token === sessionToken) update();
+    else clearTimers();
+  }, 100);
+  update();
+}
+
+function startResultAutoAdvance() {
+  const token = sessionToken;
+  const endAt = Date.now() + TIME_ATTACK.resultSeconds * 1000;
+  const base = state.qIndex < questionsFor(state.mode) ? t('next') : t('seeResults');
+  const tick = () => {
+    const remain = endAt - Date.now();
+    $('nextButton').textContent = remain > 0
+      ? `${base} (${Math.ceil(remain / 1000)})`
+      : base;
+    if (remain <= 0) {
+      clearTimers();
+      nextStep();
+    }
+  };
+  resultTickId = setInterval(() => {
+    if (token === sessionToken) tick();
+    else clearTimers();
+  }, 250);
+  tick();
+}
+
 // ---------- ゲーム進行 ----------
 
 function applyModeUi() {
@@ -1041,9 +1179,11 @@ function startSession(mode) {
   if (mode) state.mode = mode;
   state.qIndex = 0;
   state.results = [];
+  clearTimers();
   applyModeUi();
   modeOverlay.classList.remove('show');
   summaryOverlay.classList.remove('show');
+  taStartOverlay.classList.remove('show');
   renderBest();
   renderHeader();
   newQuestion();
@@ -1059,15 +1199,25 @@ function newQuestion() {
     s: 0,
     l: state.mode === 'easy' ? state.target.l : 50
   };
+  sessionToken++;
   resultOverlay.classList.remove('show');
   renderSwatches();
   renderSliders();
   renderProgress();
   renderHeader();
   popSwatches();
+  if (state.mode === 'timeattack') {
+    timerRow.hidden = false;
+    startRoundTimer();
+  } else {
+    timerRow.hidden = true;
+  }
 }
 
 function judge() {
+  if (resultOverlay.classList.contains('show')) return; // 二重判定のガード
+  clearTimers();
+  timerRow.hidden = true;
   const labT = hslToLab(state.target.h, state.target.s, state.target.l);
   const labP = hslToLab(state.player.h, state.player.s, state.player.l);
   const deltaE = ciede2000(labT, labP);
@@ -1102,13 +1252,18 @@ function judge() {
     `<div>${t('target')} ${f(state.target)}</div>` +
     `<div>${t('yours')} ${f(state.player)}</div>`;
 
-  $('nextButton').textContent = state.qIndex < TOTAL_QUESTIONS ? t('next') : t('seeResults');
+  $('nextButton').textContent = state.qIndex < questionsFor(state.mode) ? t('next') : t('seeResults');
   resultOverlay.classList.add('show');
   $('nextButton').focus();
+  // 最終問のリザルトはボタンで次へ進む(自動送りしない)
+  if (state.mode === 'timeattack' && state.qIndex < questionsFor(state.mode) && TIME_ATTACK.resultSeconds > 0) {
+    startResultAutoAdvance();
+  }
 }
 
 function nextStep() {
-  if (state.qIndex < TOTAL_QUESTIONS) {
+  clearTimers();
+  if (state.qIndex < questionsFor(state.mode)) {
     newQuestion();
   } else {
     showSummary();
@@ -1117,15 +1272,17 @@ function nextStep() {
 
 function showSummary() {
   resultOverlay.classList.remove('show');
+  clearTimers();
   $('summaryMode').textContent = t(state.mode);
   const total = state.results.reduce((sum, r) => sum + r.score, 0);
   const avgDeltaE = state.results.reduce((sum, r) => sum + r.deltaE, 0) / state.results.length;
+
+  $('summaryTotal').textContent = total;
+  $('summaryDenom').textContent = `/ ${questionsFor(state.mode) * 100}`;
+
   const prevBest = Number(localStorage.getItem(bestKeyFor(state.mode)) || 0);
   const isRecord = total > prevBest;
   if (isRecord) localStorage.setItem(bestKeyFor(state.mode), String(total));
-
-  $('summaryTotal').textContent = total;
-  $('summaryDenom').textContent = `/ ${TOTAL_QUESTIONS * 100}`;
   $('newRecord').hidden = !isRecord;
   const best = Math.max(total, prevBest);
   const bestText = best > 0 ? `${t('best')} ${best}` : `${t('best')} —`;
@@ -1185,18 +1342,38 @@ submitButton.addEventListener('click', judge);
 $('nextButton').addEventListener('click', nextStep);
 $('restartButton').addEventListener('click', () => startSession());
 $('changeModeButton').addEventListener('click', () => {
+  clearTimers();
   summaryOverlay.classList.remove('show');
   renderModeBests();
   modeOverlay.classList.add('show');
 });
 modeChip.addEventListener('click', () => {
+  clearTimers();
+  timerRow.hidden = true;
   resultOverlay.classList.remove('show');
   summaryOverlay.classList.remove('show');
   renderModeBests();
   modeOverlay.classList.add('show');
 });
 document.querySelectorAll('.mode-card').forEach(card => {
-  card.addEventListener('click', () => startSession(card.dataset.mode));
+  card.addEventListener('click', () => {
+    const mode = card.dataset.mode;
+    if (mode === 'timeattack') {
+      // タイムアタックはスタートボタンを押してからカウントダウン開始
+      modeOverlay.classList.remove('show');
+      renderTaStartInfo();
+      taStartOverlay.classList.add('show');
+      $('taStartButton').focus();
+    } else {
+      startSession(mode);
+    }
+  });
+});
+$('taStartButton').addEventListener('click', () => startSession('timeattack'));
+$('taBackButton').addEventListener('click', () => {
+  taStartOverlay.classList.remove('show');
+  renderModeBests();
+  modeOverlay.classList.add('show');
 });
 document.querySelectorAll('.lang-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -1210,6 +1387,7 @@ document.addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
   if (summaryOverlay.classList.contains('show')) return;
   if (modeOverlay.classList.contains('show')) return;
+  if (taStartOverlay.classList.contains('show')) return;
   e.preventDefault();
   if (resultOverlay.classList.contains('show')) nextStep();
   else judge();
