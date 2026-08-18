@@ -975,6 +975,7 @@ const I18N = {
     easy: 'イージー', normal: 'ノーマル',
     easyDesc: '明度は固定(30〜70%)— 色相と彩度だけ合わせる',
     normalDesc: '色相・彩度・明度をすべて合わせる',
+    rgbNormalDesc: '赤・緑・青をすべて合わせる',
     timeattack: 'タイムアタック',
     timeattackDesc: '時間制限つき。すばやく正確に合わせる',
     taStartInfoFmt: '全{r}問・1問{p}秒・リザルト{s}秒',
@@ -1013,6 +1014,7 @@ const I18N = {
     easy: 'Easy', normal: 'Normal',
     easyDesc: 'Lightness locked (30–70%) — match hue & saturation',
     normalDesc: 'Match hue, saturation & lightness',
+    rgbNormalDesc: 'Match red, green & blue',
     timeattack: 'Time Attack',
     timeattackDesc: 'Beat the clock — match fast & precisely',
     taStartInfoFmt: '{r} rounds · {p}s each · {s}s results',
@@ -1258,6 +1260,7 @@ function applyLang() {
     if (key === 'appName') el.textContent = colorSpace === 'hsl' ? d.hslAppName : d.rgbAppName;
     else if (key === 'tagline') el.textContent = colorSpace === 'hsl' ? d.hslTagline : d.rgbTagline;
     else if (key === 'easyDesc' && colorSpace === 'rgb') el.textContent = d.easyRgbDesc;
+    else if (key === 'normalDesc' && colorSpace === 'rgb') el.textContent = d.rgbNormalDesc;
     else el.textContent = d[key];
   });
   const channelKeys = channelI18nKeys();
