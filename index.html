@@ -104,8 +104,6 @@
 
   .head-info .total { color: var(--text); font-weight: 600; }
 
-  .space-btn { min-width: 42px; }
-
   .chip-btn {
     padding: 4px 10px;
     min-height: 44px;
@@ -610,7 +608,6 @@
       <button type="button" class="chip-btn" id="modeChip" title="モード選択">ノーマル</button>
       <span id="bestLabel">ベスト —</span>
       <span class="total" id="totalLabel">合計 0 pt</span>
-      <button type="button" class="chip-btn space-btn" id="spaceButton">RGB</button>
       <button type="button" class="chip-btn lang-btn">EN</button>
     </div>
   </header>
@@ -694,7 +691,7 @@
       <span class="mode-best" id="nightmareBest">ベスト —</span>
     </button>
     <div class="mode-controls">
-      <button type="button" class="chip-btn space-btn" id="modeSpaceButton">RGB</button>
+      <button type="button" class="chip-btn" id="modeSpaceButton">RGB</button>
       <button type="button" class="chip-btn lang-btn">EN</button>
     </div>
   </div>
@@ -1071,7 +1068,6 @@ const modeChip = $('modeChip');
 const taStartOverlay = $('taStartOverlay');
 const timerRow = $('timerRow');
 const timerLabel = $('timerLabel');
-const spaceButton = $('spaceButton');
 const modeSpaceButton = $('modeSpaceButton');
 const sliders = [hueSlider, satSlider, lightSlider];
 const sliderValues = [hueValue, satValue, lightValue];
@@ -1273,10 +1269,8 @@ function applyLang() {
   document.querySelectorAll('.step-btn').forEach(btn => {
     btn.setAttribute('aria-label', d[ariaMap[btn.dataset.channel][btn.dataset.dir > 0 ? 1 : 0]]);
   });
-  [spaceButton, modeSpaceButton].forEach(button => {
-    button.textContent = colorSpace === 'hsl' ? 'RGB' : 'HSL';
-    button.setAttribute('aria-label', colorSpace === 'hsl' ? d.switchToRgb : d.switchToHsl);
-  });
+  modeSpaceButton.textContent = colorSpace === 'hsl' ? 'RGB' : 'HSL';
+  modeSpaceButton.setAttribute('aria-label', colorSpace === 'hsl' ? d.switchToRgb : d.switchToHsl);
   document.querySelectorAll('.lang-btn').forEach(b => {
     b.textContent = lang === 'ja' ? 'EN' : '日本語';
   });
@@ -1725,13 +1719,11 @@ $('taBackButton').addEventListener('click', () => {
   renderModeBests();
   modeOverlay.classList.add('show');
 });
-function toggleColorSpace(restartSession = true) {
+function toggleColorSpace() {
   colorSpace = colorSpace === 'hsl' ? 'rgb' : 'hsl';
   applyLang();
-  if (restartSession) startSession(state.mode);
 }
-spaceButton.addEventListener('click', () => toggleColorSpace());
-modeSpaceButton.addEventListener('click', () => toggleColorSpace(false));
+modeSpaceButton.addEventListener('click', toggleColorSpace);
 document.querySelectorAll('.lang-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     lang = lang === 'ja' ? 'en' : 'ja';
