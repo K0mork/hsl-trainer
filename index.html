@@ -355,7 +355,12 @@
   .mode-desc { font-size: 12px; color: var(--muted); }
   .mode-best { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
 
-  .mode-modal .lang-btn { margin-top: 8px; }
+  .mode-controls {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 8px;
+  }
 
   /* ---------- オーバーレイ ---------- */
   .overlay {
@@ -688,7 +693,10 @@
       <span class="mode-desc" data-i18n="nightmareDesc">95点以下で即終了。連続成功回数を競う(カンスト100回)</span>
       <span class="mode-best" id="nightmareBest">ベスト —</span>
     </button>
-    <button type="button" class="chip-btn lang-btn">EN</button>
+    <div class="mode-controls">
+      <button type="button" class="chip-btn space-btn" id="modeSpaceButton">RGB</button>
+      <button type="button" class="chip-btn lang-btn">EN</button>
+    </div>
   </div>
 </div>
 
@@ -1062,6 +1070,7 @@ const taStartOverlay = $('taStartOverlay');
 const timerRow = $('timerRow');
 const timerLabel = $('timerLabel');
 const spaceButton = $('spaceButton');
+const modeSpaceButton = $('modeSpaceButton');
 const sliders = [hueSlider, satSlider, lightSlider];
 const sliderValues = [hueValue, satValue, lightValue];
 
@@ -1261,8 +1270,10 @@ function applyLang() {
   document.querySelectorAll('.step-btn').forEach(btn => {
     btn.setAttribute('aria-label', d[ariaMap[btn.dataset.channel][btn.dataset.dir > 0 ? 1 : 0]]);
   });
-  spaceButton.textContent = colorSpace === 'hsl' ? 'RGB' : 'HSL';
-  spaceButton.setAttribute('aria-label', colorSpace === 'hsl' ? d.switchToRgb : d.switchToHsl);
+  [spaceButton, modeSpaceButton].forEach(button => {
+    button.textContent = colorSpace === 'hsl' ? 'RGB' : 'HSL';
+    button.setAttribute('aria-label', colorSpace === 'hsl' ? d.switchToRgb : d.switchToHsl);
+  });
   document.querySelectorAll('.lang-btn').forEach(b => {
     b.textContent = lang === 'ja' ? 'EN' : '日本語';
   });
@@ -1711,11 +1722,13 @@ $('taBackButton').addEventListener('click', () => {
   renderModeBests();
   modeOverlay.classList.add('show');
 });
-spaceButton.addEventListener('click', () => {
+function toggleColorSpace(restartSession = true) {
   colorSpace = colorSpace === 'hsl' ? 'rgb' : 'hsl';
   applyLang();
-  startSession(state.mode);
-});
+  if (restartSession) startSession(state.mode);
+}
+spaceButton.addEventListener('click', () => toggleColorSpace());
+modeSpaceButton.addEventListener('click', () => toggleColorSpace(false));
 document.querySelectorAll('.lang-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     lang = lang === 'ja' ? 'en' : 'ja';
